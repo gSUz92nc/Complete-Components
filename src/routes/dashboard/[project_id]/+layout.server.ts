@@ -1,3 +1,4 @@
+import { redirect } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = async ({
@@ -26,28 +27,25 @@ export const load: LayoutServerLoad = async ({
 
     if (componentsError) {
       console.error("Error fetching components", componentsError);
-      return {
-        components: [],
-      };
+      throw redirect(302, "/dashboard");
     }
 
     if (projectError) {
       console.error("Error fetching project", projectError);
-      return {
-        components: [],
-      };
+      throw redirect(302, "/dashboard");
     }
 
     // Use components and project here
     return {
       components,
-      project_name: project.name,
+      project_data: {
+        name: project.name,
+        id: project_id,
+      },
     };
 
   } catch (error) {
     console.error("Error fetching data", error);
-    return {
-      components: [],
-    };
+      throw redirect(302, "/dashboard");
   }
 };

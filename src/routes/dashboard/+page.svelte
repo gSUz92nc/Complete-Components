@@ -6,14 +6,6 @@
   let { projects, supabase } = data;
   $: ({ projects, supabase } = data);
 
-  let showModal = true;
-
-  onMount(() => {
-    console.log(data);
-  });
-
-  $: console.log(showModal);
-
   let create_project_modal: any;
 
   onMount(() => {
