@@ -4,7 +4,7 @@
 
 
 <svelte:head>
-    <title>Kaizen</title>
+    <title>Complete Components</title>
 </svelte:head>
 
 <slot />

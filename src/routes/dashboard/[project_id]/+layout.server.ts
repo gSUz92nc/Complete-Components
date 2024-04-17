@@ -1,25 +1,53 @@
-import { redirect } from '@sveltejs/kit'
-import type { LayoutServerLoad } from './$types'
+import type { LayoutServerLoad } from "./$types";
 
-export const load: LayoutServerLoad = async ({ locals: { safeGetSession, supabase }, params }) => {
+export const load: LayoutServerLoad = async ({
+  locals: { supabase },
+  params,
+}) => {
+  const project_id = params.project_id;
 
-  const project_id = params.project_id
+  try {
+    const [componentsResult, projectResult] = await Promise.all([
+      await supabase
+        .from("components")
+        .select("*")
+        .eq("project_id", project_id)
+        .order("created_at", { ascending: false }),
 
-  // Load the components for the project
-  const { data, error } = await supabase
-    .from('components')
-    .select('*')
-    .eq('project_id', project_id)
-    .order('created_at', { ascending: false })
+      await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", project_id)
+        .single(),
+    ]);
 
-  if (error) {
-    console.error('Error fetching components', error)
-    return {
-      components: []
+    const { data: components, error: componentsError } = componentsResult;
+    const { data: project, error: projectError } = projectResult;
+
+    if (componentsError) {
+      console.error("Error fetching components", componentsError);
+      return {
+        components: [],
+      };
     }
-  }
 
-  return {
-    components: data
+    if (projectError) {
+      console.error("Error fetching project", projectError);
+      return {
+        components: [],
+      };
+    }
+
+    // Use components and project here
+    return {
+      components,
+      project_name: project.name,
+    };
+
+  } catch (error) {
+    console.error("Error fetching data", error);
+    return {
+      components: [],
+    };
   }
-}
+};
