@@ -37,11 +37,10 @@
         },
       ];
 
-        // Insert the initial message into the table
-        const { error } = await supabase
-          .from("component_ai_messages")
-          .insert(messages[0]);
-
+      // Insert the initial message into the table
+      const { error } = await supabase
+        .from("component_ai_messages")
+        .insert(messages[0]);
     } else {
       messages = messageData;
     }
@@ -51,9 +50,94 @@
     console.log("messages", messages);
   }
 
+  async function startNewChat() {
+    // Close the dialog
+    confirmNewChat = false;
+
+    // Delete all messages from the table
+    const { error } = await supabase
+      .from("component_ai_messages")
+      .delete()
+      .eq("component_id", component.id);
+
+    if (error) {
+      console.error("Error deleting messages", error);
+    }
+
+    // Insert the initial message into the table
+    const { error: insertError } = await supabase
+      .from("component_ai_messages")
+      .insert({
+        content:
+          "How can I help you? I can adjust styles, suggest improvements and more!",
+        messenger: "ai",
+        created_at: new Date(),
+        component_id: component.id,
+      });
+
+    if (insertError) {
+      console.error("Error inserting initial message", insertError);
+    }
+
+    loadMessages();
+  }
+
+  let streamedMessage = "";
+
+  // Sends the message to the AI endpoint, which returns a response aswell as saves the message to the table
+  async function sendMessage() {
+    const stream = await fetch("/api/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/event-stream",
+      },
+      body: JSON.stringify({
+        prompt: "I want to change the background color",
+      }),
+    });
+
+    const reader = stream.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+
+    while (true) {
+      if (reader == null) {
+        console.log("Reader is null");
+        continue;
+      }
+
+      console.log("Reading");
+      const { value, done } = (await reader.read()) as {
+        value: any;
+        done: boolean;
+      };
+      if (done) break;
+      if (value) {
+        console.log("Value:", value);
+        if (value.includes("event: close")) {
+          console.log("Closing stream");
+          break;
+        }
+        streamedMessage += value;
+      }
+    }
+    // Add the message to the array
+    messages = [
+      ...messages,
+      {
+        content: streamedMessage,
+        messenger: "ai",
+        created_at: new Date(),
+        component_id: component.id,
+      },
+    ];
+    streamedMessage = "";
+  }
+
   // Controls the theme for the component preview tab, saved between sessions using supabase
   let theme = component.theme || "dark";
 
+  // Toggles the theme between dark and light
   async function toggleTheme() {
     theme = theme === "dark" ? "light" : "dark";
 
@@ -89,17 +173,24 @@
   </script> -->
 </svelte:head>
 
-{#if !confirmNewChat}
-<dialog id="confirm" class="modal modal-open">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Just a heads up</h3>
-    <p class="py-4">Starting a new conversation deletes the current conversation</p>
-    <div class="w-full flex">
-      <button class="btn w-full">Close</button>
-      <button class="btn w-full">Close</button>
+{#if confirmNewChat}
+  <dialog id="confirm" class="modal modal-open">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg">Just a heads up</h3>
+      <p class="py-4">
+        Starting a new conversation deletes the current conversation
+      </p>
+      <div class="flex justify-center">
+        <button class="btn grow mr-2 btn-error" on:click={startNewChat}
+          >Start New Conversation</button
+        >
+        <button
+          class="btn grow ml-2 btn-success"
+          on:click={() => (confirmNewChat = false)}>Close</button
+        >
+      </div>
     </div>
-  </div>
-</dialog>
+  </dialog>
 {/if}
 
 <div class="drawer h-screen">
@@ -208,7 +299,7 @@
             </div>
           {:else}
             {#each messages as message}
-              {#if message.sender == "ai"}
+              {#if message.messenger == "ai"}
                 <div class="chat chat-start">
                   <div class="chat-bubble">{message.content}</div>
                 </div>
@@ -218,16 +309,26 @@
                 </div>
               {/if}
             {/each}
+            {#if streamedMessage != ""}
+              <div class="chat chat-start">
+                <div class="chat-bubble">{streamedMessage}</div>
+              </div>
+            {/if}
           {/if}
           <div class="absolute bottom-2 w-full px-2">
-            <button class="ml-2 text-sm" on:click={() => confirmNewChat = true}>Start new conversation?</button>
+            <button
+              class="ml-2 text-sm"
+              on:click={() => (confirmNewChat = true)}
+              >Start new conversation?</button
+            >
             <div class="join w-full">
               <textarea
                 class="input input-bordered join-item w-full pt-2 min-h-12"
                 placeholder="What do you want done?"
               />
-              <button class="btn join-item input-bordered w-20 text-md h-full"
-                >Send</button
+              <button
+                class="btn join-item input-bordered w-20 text-md h-full"
+                on:click={sendMessage}>Send</button
               >
             </div>
           </div>
