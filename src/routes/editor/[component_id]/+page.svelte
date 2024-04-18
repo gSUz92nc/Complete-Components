@@ -3,12 +3,55 @@
   import { html } from "@codemirror/lang-html";
   import { oneDark } from "@codemirror/theme-one-dark";
   import example_code from "$lib/text/example_component.js";
+  import { onMount } from "svelte";
 
   export let data;
   let { component, supabase } = data;
 
   let code = example_code;
 
+  let messages: any[] = [];
+  let loadingMessages = true;
+  let confirmNewChat = false;
+
+  // Loads the messages from the table
+  async function loadMessages() {
+    const { data: messageData, error } = await supabase
+      .from("component_ai_messages")
+      .select("*")
+      .eq("component_id", component.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.log("There was an error loading messages:", error.message);
+    }
+
+    if (messageData == null || messageData.length == 0) {
+      messages = [
+        {
+          content:
+            "How can I help you? I can adjust styles, suggest improvements and more!",
+          messenger: "ai",
+          created_at: new Date(),
+          component_id: component.id,
+        },
+      ];
+
+        // Insert the initial message into the table
+        const { error } = await supabase
+          .from("component_ai_messages")
+          .insert(messages[0]);
+
+    } else {
+      messages = messageData;
+    }
+
+    loadingMessages = false;
+
+    console.log("messages", messages);
+  }
+
+  // Controls the theme for the component preview tab, saved between sessions using supabase
   let theme = component.theme || "dark";
 
   async function toggleTheme() {
@@ -24,14 +67,15 @@
       console.error("Error updating theme", error);
     }
   }
-</script>
 
+  onMount(() => {
+    loadMessages();
+  });
+</script>
 
 <svelte:head>
   <script src="/tailwind.js"></script>
-
   <!-- GOING TO BE USED FOR THEMES -->
-
   <!-- <script>
     tailwind.config = {
       theme: {
@@ -44,6 +88,19 @@
     }
   </script> -->
 </svelte:head>
+
+{#if !confirmNewChat}
+<dialog id="confirm" class="modal modal-open">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Just a heads up</h3>
+    <p class="py-4">Starting a new conversation deletes the current conversation</p>
+    <div class="w-full flex">
+      <button class="btn w-full">Close</button>
+      <button class="btn w-full">Close</button>
+    </div>
+  </div>
+</dialog>
+{/if}
 
 <div class="drawer h-screen">
   <input id="my-drawer-3" type="checkbox" class="drawer-toggle" />
@@ -76,7 +133,7 @@
       <div class="flex-none hidden lg:block">
         <ul class="menu menu-horizontal">
           <!-- Navbar menu content here -->
-          <li><a>Navbar Item 1f</a></li>
+          <li><a>Navbar Item 1</a></li>
           <li><a>Navbar Item 2</a></li>
         </ul>
       </div>
@@ -84,6 +141,9 @@
     <!-- Page content here -->
     <div class="flex flex-col sm:flex-row w-full p-4 h-[calc(100vh-6rem)]">
       <div class="mockup-code h-full w-full mr-2 border border-base-300">
+        <button class="btn btn-sm btn-primary absolute right-2 top-2"
+          >Convert</button
+        >
         <CodeMirror
           class="w-full h-full overflow-scroll"
           bind:value={code}
@@ -130,19 +190,46 @@
             {/if}
           </div>
           <div
-            class={"flex justify-center items-center h-full overflow-scroll pt-[5rem]" + (theme == "dark" ? " bg-base-200" : " bg-white")}
+            class={"flex justify-center items-center h-full overflow-scroll pt-[5rem] " +
+              (theme == "dark" ? "bg-base-200" : "bg-white")}
           >
             {@html code}
           </div>
         </div>
-        <div class="border border-base-300 rounded-2xl h-full mt-2 ml-2">
-          <div class="chat chat-start rounded-2xl">
-            <div class="chat-bubble">
-              It's over Anakin, <br />I have the high ground.
+        <div
+          class="border bg-base-200 border-base-200 rounded-2xl h-full mt-2 ml-2 overflow-y-scroll relative"
+        >
+          {#if loadingMessages}
+            <div class="chat chat-start rounded-2xl h-24">
+              <div class="chat-bubble w-[90%] h-full skeleton" />
             </div>
-          </div>
-          <div class="chat chat-end">
-            <div class="chat-bubble">You underestimate my power!</div>
+            <div class="chat chat-end">
+              <div class="chat-bubble w-full h-full skeleton" />
+            </div>
+          {:else}
+            {#each messages as message}
+              {#if message.sender == "ai"}
+                <div class="chat chat-start">
+                  <div class="chat-bubble">{message.content}</div>
+                </div>
+              {:else}
+                <div class="chat chat-end">
+                  <div class="chat-bubble">{message.content}</div>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+          <div class="absolute bottom-2 w-full px-2">
+            <button class="ml-2 text-sm" on:click={() => confirmNewChat = true}>Start new conversation?</button>
+            <div class="join w-full">
+              <textarea
+                class="input input-bordered join-item w-full pt-2 min-h-12"
+                placeholder="What do you want done?"
+              />
+              <button class="btn join-item input-bordered w-20 text-md h-full"
+                >Send</button
+              >
+            </div>
           </div>
         </div>
       </div>
