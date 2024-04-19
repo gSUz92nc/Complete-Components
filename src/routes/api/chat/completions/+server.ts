@@ -10,6 +10,7 @@ export const POST = async ({ request }) => {
 
   const body = await request.json();
 
+  const messages = parseMessagesToAnthropic(body.messages);
   let streamedMessage = "";
 
   const stream = new ReadableStream({
@@ -18,7 +19,7 @@ export const POST = async ({ request }) => {
 
       client.messages
         .stream({
-          messages: [{ role: "user", content: "Hello" }], // body.messages,
+          messages,
           model: "claude-3-haiku-20240307",
           max_tokens: 1024,
         })
@@ -60,7 +61,22 @@ export const POST = async ({ request }) => {
   });
 };
 
-function saveMessageToDatabase(message) {
+function saveMessageToDatabase(message: string) {
   // Code to save the message to the database
   console.log("Saving message to database:", message);
+}
+
+function parseMessagesToAnthropic(messages: any[]) {
+  // Code to parse the messages to the Anthropic format
+  console.log("Parsing messages to Anthropic format:", messages);
+  
+  let parsedMessages = [];
+
+  // Parse the messages
+  for (const message of messages) {
+    parsedMessages.push({ role: (message.messenger) == "ai" ? "assistant" : "user" as "assistant" | "user", content: message.content as string });
+  }
+
+  console.log("Parsed messages:", parsedMessages);
+  return parsedMessages;
 }

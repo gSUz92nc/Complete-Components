@@ -11,8 +11,9 @@
   let code = example_code;
 
   let messages: any[] = [];
-  let loadingMessages = true;
+  let loadingMessages = false;
   let confirmNewChat = false;
+  let newMessage = "";
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -24,25 +25,6 @@
 
     if (error) {
       console.log("There was an error loading messages:", error.message);
-    }
-
-    if (messageData == null || messageData.length == 0) {
-      messages = [
-        {
-          content:
-            "How can I help you? I can adjust styles, suggest improvements and more!",
-          messenger: "ai",
-          created_at: new Date(),
-          component_id: component.id,
-        },
-      ];
-
-      // Insert the initial message into the table
-      const { error } = await supabase
-        .from("component_ai_messages")
-        .insert(messages[0]);
-    } else {
-      messages = messageData;
     }
 
     loadingMessages = false;
@@ -64,21 +46,6 @@
       console.error("Error deleting messages", error);
     }
 
-    // Insert the initial message into the table
-    const { error: insertError } = await supabase
-      .from("component_ai_messages")
-      .insert({
-        content:
-          "How can I help you? I can adjust styles, suggest improvements and more!",
-        messenger: "ai",
-        created_at: new Date(),
-        component_id: component.id,
-      });
-
-    if (insertError) {
-      console.error("Error inserting initial message", insertError);
-    }
-
     loadMessages();
   }
 
@@ -86,13 +53,27 @@
 
   // Sends the message to the AI endpoint, which returns a response aswell as saves the message to the table
   async function sendMessage() {
+    
+    // Add the message to the array
+    messages = [
+      ...messages,
+      {
+        content: newMessage,
+        messenger: "user",
+        created_at: new Date(),
+        component_id: component.id,
+      },
+    ];
+
+    // Stream the message from the AI endpoint
     const stream = await fetch("/api/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "text/event-stream",
       },
       body: JSON.stringify({
-        prompt: "I want to change the background color",
+        messages,
+        component_id: component.id,
       }),
     });
 
@@ -132,6 +113,18 @@
       },
     ];
     streamedMessage = "";
+  }
+
+  // Scrolls to the bottom of the chat
+  function scrollToBottom(node: any, messages: any[]) {
+    const scroll = () =>
+      node.scroll({
+        top: node.scrollHeight,
+        behavior: "smooth",
+      });
+    scroll();
+
+    return { update: scroll };
   }
 
   // Controls the theme for the component preview tab, saved between sessions using supabase
@@ -288,33 +281,38 @@
           </div>
         </div>
         <div
-          class="border bg-base-200 border-base-200 rounded-2xl h-full mt-2 ml-2 overflow-y-scroll relative"
+          class="border bg-base-200 border-base-300 rounded-2xl overflow-y-scroll h-full mt-2 ml-2 relative"
         >
-          {#if loadingMessages}
-            <div class="chat chat-start rounded-2xl h-24">
-              <div class="chat-bubble w-[90%] h-full skeleton" />
-            </div>
-            <div class="chat chat-end">
-              <div class="chat-bubble w-full h-full skeleton" />
-            </div>
-          {:else}
-            {#each messages as message}
-              {#if message.messenger == "ai"}
+          <div
+            class="overflow-y-scroll h-full pb-24"
+            use:scrollToBottom={messages}
+          >
+            {#if loadingMessages}
+              <div class="chat chat-start rounded-2xl h-24">
+                <div class="chat-bubble w-[90%] h-full skeleton" />
+              </div>
+              <div class="chat chat-end">
+                <div class="chat-bubble w-full h-full skeleton" />
+              </div>
+            {:else}
+              {#each messages as message}
+                {#if message.messenger == "ai"}
+                  <div class="chat chat-start">
+                    <div class="chat-bubble">{message.content}</div>
+                  </div>
+                {:else}
+                  <div class="chat chat-end">
+                    <div class="chat-bubble">{message.content}</div>
+                  </div>
+                {/if}
+              {/each}
+              {#if streamedMessage != ""}
                 <div class="chat chat-start">
-                  <div class="chat-bubble">{message.content}</div>
-                </div>
-              {:else}
-                <div class="chat chat-end">
-                  <div class="chat-bubble">{message.content}</div>
+                  <div class="chat-bubble">{streamedMessage}</div>
                 </div>
               {/if}
-            {/each}
-            {#if streamedMessage != ""}
-              <div class="chat chat-start">
-                <div class="chat-bubble">{streamedMessage}</div>
-              </div>
             {/if}
-          {/if}
+          </div>
           <div class="absolute bottom-2 w-full px-2">
             <button
               class="ml-2 text-sm"
@@ -325,6 +323,7 @@
               <textarea
                 class="input input-bordered join-item w-full pt-2 min-h-12"
                 placeholder="What do you want done?"
+                bind:value={newMessage}
               />
               <button
                 class="btn join-item input-bordered w-20 text-md h-full"
