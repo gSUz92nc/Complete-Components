@@ -14,6 +14,7 @@
   let loadingMessages = false;
   let confirmNewChat = false;
   let newMessage = "";
+  let streamingMessage = true;
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -29,12 +30,16 @@
 
     loadingMessages = false;
 
-    console.log("messages", messages);
+    messages = messageData || [];
+
+    streamingMessage = false;
   }
 
   async function startNewChat() {
     // Close the dialog
     confirmNewChat = false;
+
+    streamingMessage = false;
 
     // Delete all messages from the table
     const { error } = await supabase
@@ -53,6 +58,12 @@
 
   // Sends the message to the AI endpoint, which returns a response aswell as saves the message to the table
   async function sendMessage() {
+
+    if (streamingMessage) {
+      return;
+    }
+
+    streamingMessage = true;
     
     // Add the message to the array
     messages = [
@@ -65,6 +76,9 @@
       },
     ];
 
+    // Clear the message
+    newMessage = ""
+
     // Stream the message from the AI endpoint
     const stream = await fetch("/api/chat/completions", {
       method: "POST",
@@ -74,6 +88,7 @@
       body: JSON.stringify({
         messages,
         component_id: component.id,
+        code,
       }),
     });
 
@@ -113,6 +128,7 @@
       },
     ];
     streamedMessage = "";
+    streamingMessage = false;
   }
 
   // Scrolls to the bottom of the chat
@@ -147,6 +163,23 @@
 
   onMount(() => {
     loadMessages();
+
+    // When ENTER is pressed, send the message
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+
+        // Check if the textarea is focused
+        if (document.activeElement !== document.querySelector("textarea")) {
+          return;
+        }
+
+        sendMessage();
+        // Stop the textarea from adding a new line
+        e.preventDefault();
+        // Unfocus the textarea
+        
+      }
+    });
   });
 </script>
 
@@ -223,13 +256,17 @@
       </div>
     </div>
     <!-- Page content here -->
-    <div class="flex flex-col sm:flex-row w-full p-4 h-[calc(100vh-6rem)]">
-      <div class="mockup-code h-full w-full mr-2 border border-base-300">
-        <button class="btn btn-sm btn-primary absolute right-2 top-2"
-          >Convert</button
-        >
+    <div class="flex flex-col sm:flex-row w-full p-4 h-[calc(100vh-6rem)] max-w-screen">
+      <div class="flex relative h-full max-w-[50%] mr-2 border border-base-300 rounded-2xl">
+        <div class="absolute w-full">
+          <div role="tablist" class="tabs tabs-lifted shrink">
+            <a role="tab" class="tab h-12 tab-active">.svelte</a>
+            <a role="tab" class="tab h-12">tailwind.config.js</a>
+            <a role="tab" class="tab h-12">other</a>
+          </div>
+        </div>
         <CodeMirror
-          class="w-full h-full overflow-scroll"
+          class="w-full h-full overflow-scroll pt-12 overflow-hidden rounded-b-2xl"
           bind:value={code}
           lang={html()}
           theme={oneDark}
