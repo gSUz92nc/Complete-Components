@@ -17,6 +17,7 @@
   let newMessage = "";
   let streamingMessage = true;
   let coding = false;
+  let selectedTab = "history" as "svelte" | "history";
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -139,9 +140,13 @@
           code = decode(tempCode);
 
           // Upload the new code to the database
-          await supabase
-            .from("component_code")
-            .insert({ code, component_id: component.id, user_id: session?.user.id});
+          const { data } = await supabase.from("component_code").insert({
+            code,
+            component_id: component.id,
+            user_id: session?.user.id,
+          }).select("*").single();
+
+          loadedCode = [...loadedCode, data]
 
           console.log("New code:", code);
 
@@ -317,28 +322,68 @@
       >
         <div class="absolute w-full">
           <div role="tablist" class="tabs tabs-lifted shrink">
-            <a role="tab" class="tab h-12 tab-active">.svelte</a>
-            <a role="tab" class="tab h-12">tailwind.config.js</a>
-            <a role="tab" class="tab h-12">other</a>
+            {#if selectedTab == "svelte"}
+              <button
+                role="tab"
+                class="tab h-12 tab-active"
+                on:click={() => (selectedTab = "svelte")}>.svelte</button
+              >
+              <button
+                role="tab"
+                class="tab h-12"
+                on:click={() => (selectedTab = "history")}>history</button
+              >
+            {:else}
+              <button
+                role="tab"
+                class="tab h-12"
+                on:click={() => (selectedTab = "svelte")}>.svelte</button
+              >
+              <button
+                role="tab"
+                class="tab h-12 tab-active"
+                on:click={() => (selectedTab = "history")}>history</button
+              >
+            {/if}
           </div>
         </div>
-        <CodeMirror
-          class="w-full h-full overflow-scroll pt-12 overflow-hidden rounded-b-2xl"
-          bind:value={code}
-          lang={html()}
-          theme={oneDark}
-          styles={{
-            "&": {
-              width: "100%",
-              height: "100%",
-              overflow: "scroll",
-            },
-          }}
-        />
-        <button
-          on:click={saveCode}
-          class="right-2 bottom-2 btn btn-primary absolute">Save</button
-        >
+        {#if selectedTab == "svelte"}
+          <CodeMirror
+            class="w-full h-full overflow-scroll pt-12 overflow-hidden rounded-b-2xl"
+            bind:value={code}
+            lang={html()}
+            theme={oneDark}
+            styles={{
+              "&": {
+                width: "100%",
+                height: "100%",
+                overflow: "scroll",
+              },
+            }}
+          />
+          <button
+            on:click={saveCode}
+            class="right-2 bottom-2 btn btn-primary absolute">Save</button
+          >
+        {:else}
+          <div class="flex w-full h-full pt-12">
+            <div class="grid flex-grow">
+              {#each loadedCode as code}
+                <div class="overflow-hidden w-1/2 h-32">
+                    {code.code}
+                </div>
+              {/each}
+            </div>
+            <div class="divider divider-horizontal"/>
+            <div class="flex-grow">
+              {#each loadedCode as code}
+                <div class="overflow-hidden w-1/2 h-32">
+                    {code.code}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
       <div class="flex flex-col w-full">
         <div

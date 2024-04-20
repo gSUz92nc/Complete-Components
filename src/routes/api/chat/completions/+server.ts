@@ -26,8 +26,6 @@ export const POST = async ({ request }) => {
       lastUserMessage = messages[messageLength - 1].content;
     }
 
-    console.log("Last user message:", lastUserMessage);
-
     // Get embedding
     const { data } = await supabaseAdmin.functions.invoke(
       "generate_embedding",
@@ -122,8 +120,6 @@ export const POST = async ({ request }) => {
                   // Send the code tag text to the frontend
                   const chunk = encoder.encode("NEW_CODE:" + codeTagText);
                   controller.enqueue(chunk);
-
-                  console.log("Code tag text trimmed:", codeTagText);
 
                   // Reset the code tag text
                   codeTagText = "";

@@ -48,10 +48,13 @@ export const GET = async ({ url }) => {
       encoding: "base64",
     });
 
+    // Get the user_id from
+    const { data: component } = await supabaseAdmin.from("component_code").select("user_id").eq("id", id).single();
+
     // Upload the image to a storage bucket
     await supabaseAdmin.storage.from("code_previews")
       .upload(
-        `${id}/image.png`,
+        `${component?.user_id}/${id}/image.png`,
         base64ToArrayBuffer(image),
         {
           contentType: "image/png",
