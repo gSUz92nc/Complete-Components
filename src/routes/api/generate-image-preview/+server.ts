@@ -1,19 +1,19 @@
-import puppeteer from "puppeteer";
-import { env } from "$env/dynamic/public";
+import puppeteer from "puppeteer-core";
 import { supabaseAdmin } from "$lib/supabase/supabaseAdmin";
+import { BRIGHT_DATA_PASS, BRIGHT_DATA_USER } from "$env/static/private";
 
-const url = env.PUBLIC_URL;
+const AUTH = `${BRIGHT_DATA_USER}:${BRIGHT_DATA_PASS}`; // Add your username and password here
+const SBR_WS_ENDPOINT = `wss://${AUTH}@brd.superproxy.io:9222`;
 
 function formatCode(code: string) {
   // Add <script src="/tailwind.js"></script>
-  let formattedCode = `<head><script src="${url}/tailwind.js"></script></head>`;
+  let formattedCode = `<head><script src="https://cdn.tailwind.com"></script></head>`;
   // Add the code
   formattedCode +=
     `<div class="flex justify-center items-center h-full bg-gray-900">`;
   formattedCode += code;
   formattedCode += `</div>`;
-
-  console.log(formattedCode);
+  
   return formattedCode;
 }
 
@@ -27,13 +27,14 @@ function base64ToArrayBuffer(base64: string) {
 }
 
 export const GET = async ({ url }) => {
+  const browser = await puppeteer.connect({
+    browserWSEndpoint: SBR_WS_ENDPOINT,
+  });
+
+  console.log("Connected to browser");
+
   try {
-
-    
-    const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    page.setViewport({ width: 896, height: 1344 });
-
 
     const code_id = url.searchParams.get("code_id");
 
@@ -47,6 +48,12 @@ export const GET = async ({ url }) => {
     await page.setContent(formatCode(code), {
       waitUntil: "networkidle2",
     });
+
+    page.waitForNetworkIdle();
+
+    const html = await page.content();
+
+    console.log("html", html)
 
     const image = await page?.screenshot({
       encoding: "base64",
@@ -73,5 +80,9 @@ export const GET = async ({ url }) => {
     return new Response("There was an error", {
       status: 500,
     });
+  } finally {
+    await browser.close();
   }
 };
+
+

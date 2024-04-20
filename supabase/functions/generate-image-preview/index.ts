@@ -4,13 +4,11 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 /// <reference types="https://esm.sh/v135/@supabase/functions-js@2.3.1/src/edge-runtime.d.ts" />
-import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
+import puppeteer from "https://deno.land/x/puppeteer_plus@0.23.0/mod.ts";;
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3"
 
 const browser = await puppeteer.launch();
 const page = await browser.newPage();
-page.setViewport({ width: 896, height: 1344 });
-
 
 function formatCode(code: string) {
   // Add <script src="/tailwind.js"></script>
