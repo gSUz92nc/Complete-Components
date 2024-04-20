@@ -4,17 +4,20 @@
   import { oneDark } from "@codemirror/theme-one-dark";
   import example_code from "$lib/text/example_component.js";
   import { onMount } from "svelte";
+  import { decode } from "html-entities";
 
   export let data;
-  let { component, supabase } = data;
+  let { component, loadedCode, supabase, session } = data;
 
-  let code = example_code;
+  let code = ""; // `<button class="bg-green-100">Hello!</button>`;
 
   let messages: any[] = [];
   let loadingMessages = false;
   let confirmNewChat = false;
   let newMessage = "";
   let streamingMessage = true;
+  let coding = false;
+  let checkingCode = false;
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -55,16 +58,18 @@
   }
 
   let streamedMessage = "";
+  let analysingMessage = false;
 
   // Sends the message to the AI endpoint, which returns a response aswell as saves the message to the table
   async function sendMessage() {
-
-    if (streamingMessage) {
+    if (streamingMessage || newMessage == "") {
       return;
+    } else {
+      streamingMessage = true;
     }
 
-    streamingMessage = true;
-    
+    analysingMessage = true;
+
     // Add the message to the array
     messages = [
       ...messages,
@@ -77,7 +82,7 @@
     ];
 
     // Clear the message
-    newMessage = ""
+    newMessage = "";
 
     // Stream the message from the AI endpoint
     const stream = await fetch("/api/chat/completions", {
@@ -101,19 +106,48 @@
         console.log("Reader is null");
         continue;
       }
-
-      console.log("Reading");
       const { value, done } = (await reader.read()) as {
         value: any;
         done: boolean;
       };
-      if (done) break;
       if (value) {
-        console.log("Value:", value);
-        if (value.includes("event: close")) {
+        analysingMessage = false;
+
+        if (value.includes("[DONE]" || done)) {
           console.log("Closing stream");
           break;
         }
+
+        if (value.includes("[CURRENTLY_CODING]")) {
+          console.log("Currently coding");
+
+          coding = true;
+
+          // Trim the excess whitespace from the streamed message
+          streamedMessage = streamedMessage.trim();
+
+          continue;
+        } else {
+          coding = false;
+        }
+
+        // Check value for new code content
+        if (value.includes("NEW_CODE:")) {
+          // Ignore the first 9 characters
+          const tempCode = value.slice(9);
+
+          // Convert html entities to characters
+          code = decode(tempCode);
+
+          // Upload the new code to the database
+          const { error } = await supabase
+            .from("components_code")
+            .insert({ code, component_id: component.id });
+
+          continue;
+        }
+
+        console.log("Value:", value);
         streamedMessage += value;
       }
     }
@@ -127,12 +161,63 @@
         component_id: component.id,
       },
     ];
+
+    console.log("DONE");
     streamedMessage = "";
     streamingMessage = false;
+
+    await verifyCode(code);
+  }
+
+  async function verifyCode(passedCode: string) {
+    checkingCode = true;
+
+    // Check if the code is valid by using the verify endpoint
+    const data = await fetch("/api/chat/verify", {
+      method: "POST",
+      body: JSON.stringify({
+        code: passedCode,
+        // The last user message
+        prompt: messages[messages.length - 2].content,
+      }),
+    });
+
+    const body = await data.json();
+
+    console.log(body);
+
+    if (body.response.includes("[[SATISFY]]")) {
+      console.log("Code is satisfying");
+    } else {
+      console.log("Code is not satisfying");
+    }
+
+    checkingCode = false;
+
+    // Edit the latest ai message to include checkingCode to determine whether it's satisfying or not to the messages array
+
+    // Get the length of the messages array
+    const messagesLength = messages.length;
+
+    // Get the position of the last ai message
+    let aiMessagePosition = 0;
+
+    for (let i = messagesLength - 1; i >= 0; i--) {
+      if (messages[i].messenger == "ai") {
+        aiMessagePosition = i;
+        break;
+      }
+    }
+
+    // Update the ai message
+    messages[aiMessagePosition].satisfying =
+      body.response.includes("[[SATISFY]]");
+
+    console.log("Messages:", messages);
   }
 
   // Scrolls to the bottom of the chat
-  function scrollToBottom(node: any, messages: any[]) {
+  function scrollToBottom(node: any, arg: any) {
     const scroll = () =>
       node.scroll({
         top: node.scrollHeight,
@@ -161,13 +246,31 @@
     }
   }
 
+  async function saveCode() {
+    console.log({ code, component_id: component.id })
+
+    const { error } = await supabase
+      .from("component_code")
+      .insert([{ code, component_id: component.id }]);
+
+    if (error) {
+      console.error("Error saving code", error);
+    }
+  }
+
   onMount(() => {
+    if (loadedCode[0] === undefined || loadedCode[0].code === undefined) {
+      console.log("EXAMPLE");
+      code = example_code;
+    } else {
+      code = loadedCode[0].code;
+    }
+
     loadMessages();
 
     // When ENTER is pressed, send the message
     window.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-
         // Check if the textarea is focused
         if (document.activeElement !== document.querySelector("textarea")) {
           return;
@@ -177,7 +280,6 @@
         // Stop the textarea from adding a new line
         e.preventDefault();
         // Unfocus the textarea
-        
       }
     });
   });
@@ -250,14 +352,17 @@
       <div class="flex-none hidden lg:block">
         <ul class="menu menu-horizontal">
           <!-- Navbar menu content here -->
-          <li><a>Navbar Item 1</a></li>
-          <li><a>Navbar Item 2</a></li>
+          <li><a href="/dashboard">Back to Dashboard</a></li>
         </ul>
       </div>
     </div>
     <!-- Page content here -->
-    <div class="flex flex-col sm:flex-row w-full p-4 h-[calc(100vh-6rem)] max-w-screen">
-      <div class="flex relative h-full max-w-[50%] mr-2 border border-base-300 rounded-2xl">
+    <div
+      class="flex flex-col sm:flex-row w-full p-4 h-[calc(100vh-6rem)] max-w-screen"
+    >
+      <div
+        class="relative h-full sm:max-w-[50%] sm:w-[50%] sm:min-w-[50%] w-full mr-2 border border-base-300 rounded-2xl"
+      >
         <div class="absolute w-full">
           <div role="tablist" class="tabs tabs-lifted shrink">
             <a role="tab" class="tab h-12 tab-active">.svelte</a>
@@ -278,6 +383,10 @@
             },
           }}
         />
+        <button
+          on:click={saveCode}
+          class="right-2 bottom-2 btn btn-primary absolute">Save</button
+        >
       </div>
       <div class="flex flex-col w-full">
         <div
@@ -322,7 +431,7 @@
         >
           <div
             class="overflow-y-scroll h-full pb-24"
-            use:scrollToBottom={messages}
+            use:scrollToBottom={{ messages, streamedMessage }}
           >
             {#if loadingMessages}
               <div class="chat chat-start rounded-2xl h-24">
@@ -335,17 +444,58 @@
               {#each messages as message}
                 {#if message.messenger == "ai"}
                   <div class="chat chat-start">
-                    <div class="chat-bubble">{message.content}</div>
+                    <div class="relative chat-bubble whitespace-pre-line pb-6">
+                      {message.content}
+                      {#if message.satisfying != null}
+                        {#if message.satisfying}
+                          <i
+                            class="absolute right-2 bottom-0 text-xs text-green-500 text-sm"
+                            >"Our systems detected code generated to follow your
+                            prompt well"</i
+                          >
+                        {:else}
+                          <i
+                            class="absolute right-2 bottom-0 text-xs text-red-500 text-sm"
+                            >"Our systems detected code generated to not follow
+                            your prompt well"</i
+                          >
+                        {/if}
+                      {/if}
+                    </div>
                   </div>
                 {:else}
                   <div class="chat chat-end">
-                    <div class="chat-bubble">{message.content}</div>
+                    <div class="chat-bubble whitespace-pre-line">
+                      {message.content}
+                    </div>
                   </div>
                 {/if}
               {/each}
+              {#if analysingMessage}
+                <div class="chat chat-start">
+                  <div class="chat-bubble whitespace-pre-line">
+                    <span class="loading loading-dots loading-md"></span><i
+                      class="ml-2 align-top">Analysing Message</i
+                    >
+                  </div>
+                </div>
+              {/if}
               {#if streamedMessage != ""}
                 <div class="chat chat-start">
-                  <div class="chat-bubble">{streamedMessage}</div>
+                  <div class="chat-bubble whitespace-pre-line">
+                    {streamedMessage}
+                    {#if coding}
+                      <br /><span class="loading loading-dots loading-md"
+                      ></span><i class="ml-2 align-top">Generating Code</i>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+              {#if checkingCode}
+                <div class="text-center w-full">
+                  <i class="text-sm"
+                    >Checking if code matches your requirements</i
+                  >
                 </div>
               {/if}
             {/if}
@@ -377,8 +527,7 @@
     ></label>
     <ul class="menu p-4 w-80 min-h-full bg-base-200">
       <!-- Sidebar content here -->
-      <li><a>Sidebar Item 1</a></li>
-      <li><a>Sidebar Item 2</a></li>
+      <li><a href="/dashboard">Back to Dashboard</a></li>
     </ul>
   </div>
 </div>
