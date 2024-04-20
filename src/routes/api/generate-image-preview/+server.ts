@@ -36,20 +36,11 @@ export const GET = async ({ url }) => {
   try {
     const page = await browser.newPage();
 
-    const code_id = url.searchParams.get("code_id");
+    const id = url.searchParams.get("id")
 
-    const { data: codeData, error: codeError } = await supabaseAdmin.from(
-      "component_code",
-    ).select("*").eq("id", code_id).single();
+    await page.goto("https://complete-components.vercel.app/api/code/render?secret=true?id=" + id);
 
-    const code = codeData.code;
-    const component_id = codeData.component_id;
-
-    await page.setContent(formatCode(code), {
-      waitUntil: "networkidle2",
-    });
-
-    page.waitForNetworkIdle();
+    await page.waitForNetworkIdle()
 
     const html = await page.content();
 
@@ -62,7 +53,7 @@ export const GET = async ({ url }) => {
     // Upload the image to a storage bucket
     const { data, error } = await supabaseAdmin.storage.from("code_previews")
       .upload(
-        `${component_id}/image.png`,
+        `${id}/image.png`,
         base64ToArrayBuffer(image),
         {
           contentType: "image/png",
