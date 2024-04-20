@@ -1,7 +1,8 @@
+import { supabaseAdmin } from "$lib/supabase/supabaseAdmin";
 import type { LayoutServerLoad } from "./$types";
 import { redirect } from "@sveltejs/kit";
 
-export const load: LayoutServerLoad = async ({ url, locals: { supabase } }) => {
+export const load: LayoutServerLoad = async ({ url }) => {
 
     // Check if params contains secret
     if (url.searchParams.get("secret") != "true") {
@@ -11,7 +12,7 @@ export const load: LayoutServerLoad = async ({ url, locals: { supabase } }) => {
     const id = url.searchParams.get("id");
 
     // Get code from database
-    const { data: component, error: componentError } = await supabase.from("component_code").select("code").eq("id", id).single();
+    const { data: component } = await supabaseAdmin.from("component_code").select("code").eq("id", id).single();
 
 
     return {
