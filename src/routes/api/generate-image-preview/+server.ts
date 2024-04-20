@@ -36,17 +36,13 @@ export const GET = async ({ url }) => {
   try {
     const page = await browser.newPage();
 
-    const id = url.searchParams.get("id")
+    const id = url.searchParams.get("code_id")
 
     console.log("id", id)
 
     await page.goto("https://complete-components.vercel.app/api/code/render?secret=true&id=" + id, {
       waitUntil: "networkidle2",
     });
-
-    const html = await page.content();
-
-    console.log("html", html)
 
     const image = await page?.screenshot({
       encoding: "base64",
@@ -63,7 +59,7 @@ export const GET = async ({ url }) => {
       );
 
     return new Response(
-      JSON.stringify({ response: "success" }),
+      JSON.stringify({ response: "success", image64: image}),
       {
         status: 200,
       },

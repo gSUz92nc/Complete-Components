@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_API_KEY } from "$env/static/private";
-import puppeteer from "puppeteer";
 import { env } from "$env/dynamic/public";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.mjs";
 
@@ -25,23 +24,22 @@ function formatCode(code: string) {
 
 export const POST = async ({ request }) => {
   try {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    page.setViewport({ width: 896, height: 1344 });
-
     const body = await request.json();
 
     console.log(body);
 
     const userPrompt: string = body.prompt;
-    const code: string = body.code;
+    const code: string = body.code_id;
 
-    await page.setContent(formatCode(code), {
-      waitUntil: "networkidle2",
+    const res = await fetch("/generate-image-preview?code_id=" + code, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
 
-    const image = await page?.screenshot({
-      encoding: "base64",
+    const image = await res.json().then((data) => {
+      return data.image64;
     });
 
     // Ask Anthropic to verify the changes

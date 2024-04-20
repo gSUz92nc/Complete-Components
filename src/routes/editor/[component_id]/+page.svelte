@@ -18,6 +18,7 @@
   let streamingMessage = true;
   let coding = false;
   let checkingCode = false;
+  let lastCodeId = "";
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -140,9 +141,13 @@
           code = decode(tempCode);
 
           // Upload the new code to the database
-          const { error } = await supabase
+          const { data } = await supabase
             .from("components_code")
-            .insert({ code, component_id: component.id });
+            .insert({ code, component_id: component.id })
+            .select("id")
+            .single();
+
+          lastCodeId = data?.id;
 
           continue;
         }
@@ -166,17 +171,17 @@
     streamedMessage = "";
     streamingMessage = false;
 
-    await verifyCode(code);
+    await verifyCode();
   }
 
-  async function verifyCode(passedCode: string) {
+  async function verifyCode() {
     checkingCode = true;
 
     // Check if the code is valid by using the verify endpoint
     const data = await fetch("/api/chat/verify", {
       method: "POST",
       body: JSON.stringify({
-        code: passedCode,
+        code_id: lastCodeId,
         // The last user message
         prompt: messages[messages.length - 2].content,
       }),
