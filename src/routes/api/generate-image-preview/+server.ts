@@ -38,9 +38,11 @@ export const GET = async ({ url }) => {
 
     const id = url.searchParams.get("id")
 
-    await page.goto("https://complete-components.vercel.app/api/code/render?secret=true&id=" + id);
+    console.log("id", id)
 
-    await page.waitForNetworkIdle()
+    await page.goto("https://complete-components.vercel.app/api/code/render?secret=true&id=" + id, {
+      waitUntil: "networkidle2",
+    });
 
     const html = await page.content();
 

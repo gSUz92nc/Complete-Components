@@ -14,6 +14,7 @@ export const load: LayoutServerLoad = async ({ url }) => {
     // Get code from database
     const { data: component } = await supabaseAdmin.from("component_code").select("code").eq("id", id).single();
 
+    console.log("id", id)
 
     return {
         code: component?.code,
