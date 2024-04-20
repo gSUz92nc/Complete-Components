@@ -17,8 +17,6 @@
   let newMessage = "";
   let streamingMessage = true;
   let coding = false;
-  let checkingCode = false;
-  let lastCodeId = "";
 
   // Loads the messages from the table
   async function loadMessages() {
@@ -147,8 +145,6 @@
             .select("id")
             .single();
 
-          lastCodeId = data?.id;
-
           continue;
         }
 
@@ -170,55 +166,6 @@
     console.log("DONE");
     streamedMessage = "";
     streamingMessage = false;
-
-    await verifyCode();
-  }
-
-  async function verifyCode() {
-    checkingCode = true;
-
-    // Check if the code is valid by using the verify endpoint
-    const data = await fetch("/api/chat/verify", {
-      method: "POST",
-      body: JSON.stringify({
-        code_id: lastCodeId,
-        // The last user message
-        prompt: messages[messages.length - 2].content,
-      }),
-    });
-
-    const body = await data.json();
-
-    console.log(body);
-
-    if (body.response.includes("[[SATISFY]]")) {
-      console.log("Code is satisfying");
-    } else {
-      console.log("Code is not satisfying");
-    }
-
-    checkingCode = false;
-
-    // Edit the latest ai message to include checkingCode to determine whether it's satisfying or not to the messages array
-
-    // Get the length of the messages array
-    const messagesLength = messages.length;
-
-    // Get the position of the last ai message
-    let aiMessagePosition = 0;
-
-    for (let i = messagesLength - 1; i >= 0; i--) {
-      if (messages[i].messenger == "ai") {
-        aiMessagePosition = i;
-        break;
-      }
-    }
-
-    // Update the ai message
-    messages[aiMessagePosition].satisfying =
-      body.response.includes("[[SATISFY]]");
-
-    console.log("Messages:", messages);
   }
 
   // Scrolls to the bottom of the chat
@@ -449,23 +396,8 @@
               {#each messages as message}
                 {#if message.messenger == "ai"}
                   <div class="chat chat-start">
-                    <div class="relative chat-bubble whitespace-pre-line pb-6">
+                    <div class="relative chat-bubble whitespace-pre-line">
                       {message.content}
-                      {#if message.satisfying != null}
-                        {#if message.satisfying}
-                          <i
-                            class="absolute right-2 bottom-0 text-xs text-green-500 text-sm"
-                            >"Our systems detected code generated to follow your
-                            prompt well"</i
-                          >
-                        {:else}
-                          <i
-                            class="absolute right-2 bottom-0 text-xs text-red-500 text-sm"
-                            >"Our systems detected code generated to not follow
-                            your prompt well"</i
-                          >
-                        {/if}
-                      {/if}
                     </div>
                   </div>
                 {:else}
@@ -494,13 +426,6 @@
                       ></span><i class="ml-2 align-top">Generating Code</i>
                     {/if}
                   </div>
-                </div>
-              {/if}
-              {#if checkingCode}
-                <div class="text-center w-full">
-                  <i class="text-sm"
-                    >Checking if code matches your requirements</i
-                  >
                 </div>
               {/if}
             {/if}
