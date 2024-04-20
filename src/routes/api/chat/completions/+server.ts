@@ -17,8 +17,6 @@ export const POST = async ({ request }) => {
     // RAG
     let ragContent = "";
 
-    console.log("Messages:", messages);
-
     const messageLength = messages.length;
     let lastUserMessage = "";
 
@@ -30,42 +28,35 @@ export const POST = async ({ request }) => {
 
     console.log("Last user message:", lastUserMessage);
 
-    const checkIfNeedRag = await client.messages.create({
-      model: "claude-3-haiku-20240307",
-      messages: [{ role: "user", content: "This is what I want to be added to my code: " + lastUserMessage + "\n\nHere is my code: \n\n" + code }],
-      max_tokens: 4096,
-      system:
-        `You are a simple concise assistant, that never says more than a couple of words, that checks a user's prompt and then decides if you need extra information to complete their request. These are the types of answers you can give: "[NEED_SUPABASE_DOCS]" when you load extra information about how to implement code relating to supabase. You need to use these docs whenever doing anything related to database, authentication, edge functions, storage, realtime, and vector embeddings. If you don't need anything to write the code or answer the user's prompt you can just say "NO"`,
-    });
-
-    console.log("Check if need RAG:", checkIfNeedRag);
-
-    if (checkIfNeedRag.content.toString().toLowerCase().includes("docs")) {
-      // Get embedding
-      const { data } = await supabaseAdmin.functions.invoke(
-        "generate_embedding",
-        {
-          body: {
-            input: messages[-1].content,
-          },
+    // Get embedding
+    const { data } = await supabaseAdmin.functions.invoke(
+      "generate_embedding",
+      {
+        body: {
+          input: lastUserMessage,
         },
-      );
+      },
+    );
 
-      console.log("Embedding:", data);
+    // Get RAG response
+    let { data: ragData, error } = await supabaseAdmin
+      .rpc("js_rag", {
+        match_count: 10,
+        query_embedding: data.embedding,
+      });
+    if (error) console.error(error);
 
-      // Get RAG response
-      let { data: ragData, error } = await supabaseAdmin
-        .rpc("js_rag", {
-          match_count: 5,
-          match_threshold: 0.8,
-          query_embedding: data.embedding,
-        });
-      if (error) console.error(error);
-      else {
-        console.log(data);
-        ragContent = ragData[0].response;
+    ragData.forEach((element: { f1: string, f2: string}) => {
+      // Check if f1 != ""
+      if (element.f1 != "") {
+        ragContent += element.f1 + "\n";
       }
-    }
+
+      // Check if f2 != ""
+      if (element.f2 != "") {
+        ragContent += element.f2 + "\n";
+      }
+    });
 
     let tagOpen = false;
     let possibleTag = "";
@@ -83,7 +74,7 @@ export const POST = async ({ request }) => {
         client.messages
           .stream({
             messages,
-            model: "claude-3-sonnet-20240229",
+            model: "claude-3-haiku-20240307", // claude-3-haiku-20240307   claude-3-sonnet-20240229 	claude-3-opus-20240229 But its pretty expensive -_-
             max_tokens: 4096,
             system:
               `You are a helpful that can helps users create components for their SvelteKit projects using TailwindCSS. You can read their current code in this prompt and write improvements to it. You must always respond in XML format. You can edit the user's code using the <code></code> tags. You do not need to include <code> tags if you are not planning on changing the code. Only change the code if the user asks to. If the user asks for help you can answer their questions but stress that you may be wrong. When ever using the <code> tags you must rewrite all of the code including code you don't intent on modifying. They are <code> Used for when you want to edit the .svelte content in their SvelteKit project. This includes their scripts, html, imports<code/>. Always include some text outside of the <code> tags. Before making any changes say something like: "Certainly" or "OK" then make a simple short list using "-" as bullet points, then go into the <code> tags. There is no need to center your outermost div since that is already done client side for the user so do not include <div class="flex justify-center items-center h-screen"> in your outermost div\n\nHere is their code:\n\n"${code}"\n\nMake sure to look through their code before writing anything, for instance if they have a login component that has a Login with Github, make sure to include login with github in the supabase code.\n\nHere is some helpful documentation that you can use to improve accuracy when using supbase:\n\n ${ragContent}\n\nYou need to use these docs whenever doing anything related to database, authentication, edge functions, storage, realtime, and vector embeddings. Always assume the user has imported supabase at the top of their <script>. Only make changes the user has asked for. Never reference any other files other than the .svelte file supplied. Include <code> tags if the user doesn't have any changes in their prompt. Only do what the user wants you to do and if it is unclear do not change the code and ask for clarity. If the users current prompt doesn't ask for any changes. Don't make any changes. Don't use any other <XML> tags other than <code>, for instance never use <response>, <message>, etc. .You will always be supplied the code and never need to ask the user for the code`,
@@ -130,9 +121,6 @@ export const POST = async ({ request }) => {
 
                   // Send the code tag text to the frontend
                   const chunk = encoder.encode("NEW_CODE:" + codeTagText);
-
-
-                  // Just to be safe :)
                   controller.enqueue(chunk);
 
                   console.log("Code tag text trimmed:", codeTagText);
@@ -170,7 +158,7 @@ export const POST = async ({ request }) => {
             controller.enqueue(encoder.encode("[ERROR]"));
             if (controller.desiredSize !== null) {
               //controller.close();
-          }
+            }
             // Return an appropriate response or rethrow the error
             return new Response("Error", { status: 500 });
           })
@@ -184,7 +172,7 @@ export const POST = async ({ request }) => {
             controller.enqueue(encoder.encode("[DONE]"));
             if (controller.desiredSize !== null) {
               //controller.close();
-          }
+            }
 
             // Return an appropriate response
             return new Response("Done", { status: 200 });
@@ -205,11 +193,6 @@ export const POST = async ({ request }) => {
     // Return an appropriate response or rethrow the error
   }
 };
-
-function saveMessageToDatabase(message: string) {
-  // Code to save the message to the database
-  console.log("Saving message to database:", message);
-}
 
 // Parse the messages to the Anthropic format
 function parseMessagesToAnthropic(messages: any[]) {

@@ -139,11 +139,11 @@
           code = decode(tempCode);
 
           // Upload the new code to the database
-          const { data } = await supabase
-            .from("components_code")
-            .insert({ code, component_id: component.id })
-            .select("id")
-            .single();
+          await supabase
+            .from("component_code")
+            .insert({ code, component_id: component.id, user_id: session?.user.id});
+
+          console.log("New code:", code);
 
           continue;
         }
@@ -199,7 +199,7 @@
   }
 
   async function saveCode() {
-    console.log({ code, component_id: component.id })
+    console.log({ code, component_id: component.id });
 
     const { error } = await supabase
       .from("component_code")
