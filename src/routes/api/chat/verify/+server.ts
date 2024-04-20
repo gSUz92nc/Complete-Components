@@ -4,22 +4,18 @@ import puppeteer from "puppeteer";
 import { env } from "$env/dynamic/public";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.mjs";
 
-
 const client = new Anthropic({
   apiKey: ANTHROPIC_API_KEY,
 });
 
 const url = env.PUBLIC_URL;
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
-page.setViewport({ width: 896, height: 1344 });
-
 function formatCode(code: string) {
   // Add <script src="/tailwind.js"></script>
   let formattedCode = `<head><script src="${url}/tailwind.js"></script></head>`;
   // Add the code
-  formattedCode += `<div class="flex justify-center items-center h-full bg-gray-900">`;
+  formattedCode +=
+    `<div class="flex justify-center items-center h-full bg-gray-900">`;
   formattedCode += code;
   formattedCode += `</div>`;
 
@@ -29,6 +25,10 @@ function formatCode(code: string) {
 
 export const POST = async ({ request }) => {
   try {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    page.setViewport({ width: 896, height: 1344 });
+
     const body = await request.json();
 
     console.log(body);
@@ -71,14 +71,18 @@ export const POST = async ({ request }) => {
       messages,
       model: "claude-3-haiku-20240307",
       max_tokens: 1000,
-      system: `You are a quality checker for an autonomous code editor. Your job is to determine whether generated code matches what the user requested. You are given and image the prompt the user send and need to determine whether the image satisfies the request of the user. If it does include [[SATISFY]] in your generated text`
+      system:
+        `You are a quality checker for an autonomous code editor. Your job is to determine whether generated code matches what the user requested. You are given and image the prompt the user send and need to determine whether the image satisfies the request of the user. If it does include [[SATISFY]] in your generated text`,
     });
 
     console.log("Response:", response);
 
-    return new Response(JSON.stringify({ response: response.content[0].text }), {
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({ response: response.content[0].text }),
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     console.log(error);
     return new Response("There was an error verifying changes", {

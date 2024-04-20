@@ -4,10 +4,6 @@ import { supabaseAdmin } from "$lib/supabase/supabaseAdmin";
 
 const url = env.PUBLIC_URL;
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
-page.setViewport({ width: 896, height: 1344 });
-
 function formatCode(code: string) {
   // Add <script src="/tailwind.js"></script>
   let formattedCode = `<head><script src="${url}/tailwind.js"></script></head>`;
@@ -32,6 +28,12 @@ function base64ToArrayBuffer(base64: string) {
 
 export const GET = async ({ url }) => {
   try {
+
+    
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    page.setViewport({ width: 896, height: 1344 });
+
 
     const code_id = url.searchParams.get("code_id");
 
