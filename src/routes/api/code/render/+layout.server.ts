@@ -4,7 +4,7 @@ import { redirect } from "@sveltejs/kit";
 export const load: LayoutServerLoad = async ({ url, locals: { supabase } }) => {
 
     // Check if params contains secret
-    if (url.searchParams.get("secret") == "true") {
+    if (url.searchParams.get("secret") != "true") {
         return redirect(302, "/dashboard");
     }
 

@@ -38,7 +38,7 @@ export const GET = async ({ url }) => {
 
     const id = url.searchParams.get("id")
 
-    await page.goto("https://complete-components.vercel.app/api/code/render?secret=true?id=" + id);
+    await page.goto("https://complete-components.vercel.app/api/code/render?secret=true&id=" + id);
 
     await page.waitForNetworkIdle()
 
@@ -51,7 +51,7 @@ export const GET = async ({ url }) => {
     });
 
     // Upload the image to a storage bucket
-    const { data, error } = await supabaseAdmin.storage.from("code_previews")
+    await supabaseAdmin.storage.from("code_previews")
       .upload(
         `${id}/image.png`,
         base64ToArrayBuffer(image),

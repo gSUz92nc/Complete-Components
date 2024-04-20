@@ -13,6 +13,6 @@
     <script src="/tailwind.js"/>
 </svelte:head>
 
-<div class="flex justify-center items-center h-full bg-gray-900">
+<div class="flex justify-center items-center h-screen bg-gray-900">
     {@html code}
 </div>
