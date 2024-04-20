@@ -10,7 +10,7 @@ export const load: LayoutServerLoad = async ({ locals: { supabase }, params }) =
   }
 
   const { data: component, error: componentError } = await supabase.from("components").select("*").eq("id", id).single();
-  const { data: code, error: codeError } = await supabase.from("component_code").select("*").eq("component_id", id).order("created_at", { ascending: true });
+  const { data: code, error: codeError } = await supabase.from("component_code").select("*").eq("component_id", id).order("created_at", { ascending: false });
 
   if (componentError) {
     console.error("Error fetching components", componentError);
