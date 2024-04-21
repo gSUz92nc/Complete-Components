@@ -3,7 +3,7 @@
   import { html } from "@codemirror/lang-html";
   import { oneDark } from "@codemirror/theme-one-dark";
   import example_code from "$lib/text/example_component.js";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { decode } from "html-entities";
 
   export let data;
@@ -15,46 +15,14 @@
   let loadingMessages = false;
   let confirmNewChat = false;
   let newMessage = "";
-  let streamingMessage = true;
+  let streamingMessage = false;
   let coding = false;
-  let selectedTab = "history" as "svelte" | "history";
-
-  // Loads the messages from the table
-  async function loadMessages() {
-    const { data: messageData, error } = await supabase
-      .from("component_ai_messages")
-      .select("*")
-      .eq("component_id", component.id)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.log("There was an error loading messages:", error.message);
-    }
-
-    loadingMessages = false;
-
-    messages = messageData || [];
-
-    streamingMessage = false;
-  }
+  let selectedTab = "svelte" as "svelte" | "history";
 
   async function startNewChat() {
     // Close the dialog
     confirmNewChat = false;
-
     streamingMessage = false;
-
-    // Delete all messages from the table
-    const { error } = await supabase
-      .from("component_ai_messages")
-      .delete()
-      .eq("component_id", component.id);
-
-    if (error) {
-      console.error("Error deleting messages", error);
-    }
-
-    loadMessages();
   }
 
   let streamedMessage = "";
@@ -62,11 +30,17 @@
 
   // Sends the message to the AI endpoint, which returns a response aswell as saves the message to the table
   async function sendMessage() {
+
+    console.log("Sending message")
+
     if (streamingMessage || newMessage == "") {
+      console.log("Sending message 1")
       return;
     } else {
       streamingMessage = true;
     }
+
+    
 
     analysingMessage = true;
 
@@ -89,6 +63,7 @@
       method: "POST",
       headers: {
         "Content-Type": "text/event-stream",
+        "Authorization": `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({
         messages,
@@ -140,15 +115,13 @@
           code = decode(tempCode);
 
           // Upload the new code to the database
-          const { data } = await supabase.from("component_code").insert({
-            code,
-            component_id: component.id,
-            user_id: session?.user.id,
-          }).select("*").single();
-
-          loadedCode = [...loadedCode, data]
-
-          console.log("New code:", code);
+          const { data } = await supabase
+            .from("component_code")
+            .insert({
+              code,
+              component_id: component.id,
+              user_id: session?.user.id,
+            })
 
           continue;
         }
@@ -215,6 +188,26 @@
     }
   }
 
+  async function rollback(newCode: string) {
+    code = newCode;
+
+    saveCode();
+  }
+
+  async function getSignedImage(id: string) {
+    const { data, error } = await supabase.storage
+      .from("code_previews")
+      .createSignedUrl(`${session?.user.id}/${id}/image.png`, 60);
+
+    if (error) {
+      console.error("Error getting signed image", error);
+    }
+
+    return data?.signedUrl;
+  }
+
+  let channels: any
+
   onMount(() => {
     if (loadedCode[0] === undefined || loadedCode[0].code === undefined) {
       console.log("EXAMPLE");
@@ -223,7 +216,17 @@
       code = loadedCode[0].code;
     }
 
-    loadMessages();
+    channels = supabase.channel(`components:${component.id}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'component_code' },
+      (payload) => {
+        loadedCode = [payload.new, ...loadedCode];
+        code = payload.new.code;  
+      }
+    )
+    .subscribe()
+      
 
     // When ENTER is pressed, send the message
     window.addEventListener("keydown", (e) => {
@@ -366,22 +369,23 @@
             class="right-2 bottom-2 btn btn-primary absolute">Save</button
           >
         {:else}
-          <div class="flex w-full h-full pt-12">
-            <div class="grid flex-grow">
-              {#each loadedCode as code}
-                <div class="overflow-hidden w-1/2 h-32">
-                    {code.code}
+          <div class="flex w-full h-full pt-12 flex-col overflow-y-scroll">
+            {#each loadedCode as code}
+              {#await getSignedImage(code.id) then signedUrl}
+              <div class="flex flex-row">
+                <div class="overflow-hidden w-1/2 h-32 flex justify-center">
+                    <button class="btn my-auto" on:click={() => rollback(code.code)}>Go back to this version</button>
                 </div>
-              {/each}
-            </div>
-            <div class="divider divider-horizontal"/>
-            <div class="flex-grow">
-              {#each loadedCode as code}
-                <div class="overflow-hidden w-1/2 h-32">
-                    {code.code}
+                <div class="overflow-y-scroll w-1/2 h-32">
+                  <img
+                    alt="Loading preview... We may still be generating the preview for this version. Please refresh in a few seconds."
+                    class="w-full"
+                    src={signedUrl}
+                  />
                 </div>
-              {/each}
-            </div>
+              </div>
+              {/await}
+            {/each}
           </div>
         {/if}
       </div>

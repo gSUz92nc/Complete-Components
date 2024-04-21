@@ -18,9 +18,17 @@
 
 </script>
 
-<div class="h-screen w-screen flex justify-center">
-  <div class="my-auto flex justify-center flex-col">
-    <h1 class="text-4xl font-bold text-center">Welcome!</h1>
-    <a class="btn btn-primary mt-8" href={(loggedIn ? '/dashboard' : '/login')}>Get Started</a>
+<div class="hero min-h-screen bg-base-200">
+  <div class="hero-content flex-col lg:flex-row">
+    <img alt="code preview" src="/image.png" class="max-w-sm h-96 shadow-2xl object-cover rounded-2xl"  />
+    <div>
+      <h1 class="text-5xl font-bold">Say hello to faster development</h1>
+      <p class="py-6">Design, Build, Connect to your backend all in a few minutes</p>
+      <a class="btn btn-primary mt-8" href={(loggedIn ? '/dashboard' : '/login')}>Get Started</a>
+      <div class="flex align-center">
+      <p class="mt-2">Powered by</p>
+      <img alt="Supabase Logo" class="h-4 mt-3 ml-2" src="/supabase.webp">
+      </div>
+    </div>
   </div>
 </div>

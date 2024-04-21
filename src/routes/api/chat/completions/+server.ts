@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_API_KEY } from "$env/static/private";
 import { supabaseAdmin } from "$lib/supabase/supabaseAdmin";
+import { createClient } from "@supabase/supabase-js";
+import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from "$env/static/public";
 
 export const POST = async ({ request }) => {
   try {
@@ -9,6 +11,16 @@ export const POST = async ({ request }) => {
     });
 
     const body = await request.json();
+
+    // Create supabase client
+    const authHeader = request.headers.get('Authorization')!
+
+    const supabaseClient = createClient(
+      PUBLIC_SUPABASE_URL,
+      PUBLIC_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
 
     const messages = parseMessagesToAnthropic(body.messages);
     const code = body.code;
@@ -117,9 +129,11 @@ export const POST = async ({ request }) => {
                   codeTagText = codeTagText.replace("<code>", "");
                   codeTagText = codeTagText.replace("</code>", "");
 
-                  // Send the code tag text to the frontend
-                  const chunk = encoder.encode("NEW_CODE:" + codeTagText);
-                  controller.enqueue(chunk);
+                  console.log("Code tag text:", codeTagText);
+
+                  saveCodeToDatabase(supabaseClient, codeTagText, body.component_id);
+
+
 
                   // Reset the code tag text
                   codeTagText = "";
@@ -132,12 +146,11 @@ export const POST = async ({ request }) => {
                 }
               }
 
-              if (confirmedTag && !sendingCode) {
+              if (confirmedTag) {
                 const chunk = encoder.encode("[CURRENTLY_CODING]");
                 controller.enqueue(chunk);
               }
 
-              sendingCode = false;
             } else {
               // Add to the stream
               const chunk = encoder.encode(text);
@@ -205,4 +218,16 @@ function parseMessagesToAnthropic(messages: any[]) {
   }
 
   return parsedMessages;
+}
+
+async function saveCodeToDatabase(supaClient: any, newCode: string, component_id: string) {
+
+  const { error } = await supaClient.from("component_code").insert(
+    {
+      code: newCode,
+      component_id: component_id,
+    },
+  );
+
+  console.log("Error:", error);
 }
