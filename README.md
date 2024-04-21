@@ -1,38 +1,39 @@
-# create-svelte
+# Complete Components
+Complete Components is an open-source project that leverages AI to help developers quickly build and integrate HTML components and code with Supabase and Tailwind CSS.
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+## Features
+- **AI-assisted Component Generation**: Utilize AI to generate HTML components tailored to your project's needs, saving you time and effort.
+- - **Supabase Integration**: Seamlessly integrate your components with Supabase, a modern and powerful backend-as-a-service solution. Uses RAG to improve the AI's coding understanding and implementation of supabase-js and reduce hallucinations
+- - **Tailwind CSS Support**: Leverage the utility-first CSS framework, Tailwind CSS, to rapidly style your components with a consistent design system.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
+## Getting Started
+### Prerequisites
+- Node - I use v20.10.0
+### Installation
+1. Clone the repository:
 ```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
+git https://github.com/gSUz92nc/Complete-Components.git
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
+2. Navigate to the project directory:
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+cd complete-components
 ```
 
-## Building
-
-To create a production version of your app:
-
+4. Install the dependencies:
 ```bash
-npm run build
-```
+npm install
+ ```
+### Usage
 
-You can preview the production build with `npm run preview`.
+1. Start the development server:
+ ```bash
+ npm run dev\n
+ ```
+2. Open your browser and visit `http://localhost:5173`.
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+## License
+Complete Components is released under the [MIT License](https://github.com/gSUz92nc/Complete-Components/tree/main?tab=MIT-1-ov-file#readme).
+
+## Acknowledgements
+I couldn't have done this without the amazing tooling provided by Supabase, TailwindCSS, Anthropic, SvelteKit and more.
