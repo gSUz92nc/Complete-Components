@@ -1,4 +1,4 @@
-# Complete Components
+# Complete Components (For the Supabase Open Source Hackathon 2024)
 Complete Components is an open-source project that leverages AI to help developers quickly build and integrate HTML components and code with Supabase and Tailwind CSS.
 
 ## Features
@@ -34,6 +34,9 @@ npm install
 
 ## License
 Complete Components is released under the [MIT License](https://github.com/gSUz92nc/Complete-Components/tree/main?tab=MIT-1-ov-file#readme).
+
+## Contributing
+I'm useless at github so if you would like to contribute (warning everything is a mess since I started late) I'll try my best to incorparate your changes.
 
 ## Acknowledgements
 I couldn't have done this without the amazing tooling provided by Supabase, TailwindCSS, Anthropic, SvelteKit and more.
