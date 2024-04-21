@@ -1,23 +1,38 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { ANTHROPIC_API_KEY } from "$env/static/private";
-import { supabaseAdmin } from "$lib/supabase/supabaseAdmin";
-import { createClient } from "@supabase/supabase-js";
-import { PUBLIC_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_URL } from "$env/static/public";
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
 
-export const POST = async ({ request }) => {
+// Setup type definitions for built-in Supabase Runtime APIs
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.3.1/src/edge-runtime.d.ts" />
+import Anthropic from "npm:@anthropic-ai/sdk"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3"
+import { corsHeaders } from '../shared/cors.ts'
+
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL"),
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+);
+
+
+Deno.serve(async (req) => {
+
+  if (req.method == "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
   try {
     const client = new Anthropic({
-      apiKey: ANTHROPIC_API_KEY,
+      apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
     });
 
-    const body = await request.json();
+    const body = await req.json();
 
     // Create supabase client
-    const authHeader = request.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')!
 
     const supabaseClient = createClient(
-      PUBLIC_SUPABASE_URL,
-      PUBLIC_SUPABASE_ANON_KEY,
+      Deno.env.get("SUPABASE_URL"),
+      Deno.env.get("SUPABASE_ANON_KEY"),
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -67,6 +82,8 @@ export const POST = async ({ request }) => {
         ragContent += element.f2 + "\n";
       }
     });
+
+    console.log("RAG content:", ragContent);
 
     let tagOpen = false;
     let possibleTag = "";
@@ -156,6 +173,8 @@ export const POST = async ({ request }) => {
               const chunk = encoder.encode(text);
               controller.enqueue(chunk);
             }
+
+            console.log("Streaming");
           })
           .on("error", (error) => {
             // Handle the error
@@ -180,7 +199,7 @@ export const POST = async ({ request }) => {
             }
             controller.enqueue(encoder.encode("[DONE]"));
             if (controller.desiredSize !== null) {
-              //controller.close();
+              controller.close();
             }
 
             // Return an appropriate response
@@ -191,9 +210,10 @@ export const POST = async ({ request }) => {
 
     return new Response(stream, {
       headers: {
+        ...corsHeaders,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        "Connection": "keep-alive",
       },
     });
   } catch (error) {
@@ -201,7 +221,19 @@ export const POST = async ({ request }) => {
     // Handle the error
     // Return an appropriate response or rethrow the error
   }
-};
+});
+
+/* To invoke locally:
+
+  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
+  2. Make an HTTP request:
+
+  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/chat' \
+    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
+    --header 'Content-Type: application/json' \
+    --data '{"name":"Functions"}'
+
+*/
 
 // Parse the messages to the Anthropic format
 function parseMessagesToAnthropic(messages: any[]) {
@@ -220,8 +252,11 @@ function parseMessagesToAnthropic(messages: any[]) {
   return parsedMessages;
 }
 
-async function saveCodeToDatabase(supaClient: any, newCode: string, component_id: string) {
-
+async function saveCodeToDatabase(
+  supaClient: any,
+  newCode: string,
+  component_id: string,
+) {
   const { error } = await supaClient.from("component_code").insert(
     {
       code: newCode,

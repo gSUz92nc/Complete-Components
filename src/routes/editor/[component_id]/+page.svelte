@@ -3,7 +3,7 @@
   import { html } from "@codemirror/lang-html";
   import { oneDark } from "@codemirror/theme-one-dark";
   import example_code from "$lib/text/example_component.js";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import { decode } from "html-entities";
 
   export let data;
@@ -23,6 +23,8 @@
     // Close the dialog
     confirmNewChat = false;
     streamingMessage = false;
+    messages = [];
+    newMessage = "";
   }
 
   let streamedMessage = "";
@@ -59,18 +61,34 @@
     newMessage = "";
 
     // Stream the message from the AI endpoint
-    const stream = await fetch("/api/chat/completions", {
+    // const stream = await fetch("/api/chat/completions", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "text/event-stream",
+    //     "Authorization": `Bearer ${session?.access_token}`,
+    //   },
+    //   body: JSON.stringify({
+    //     messages,
+    //     component_id: component.id,
+    //     code,
+    //   }),
+    // });
+
+    const stream = await fetch("https://wrnmfdfizduyptqsvbnm.supabase.co/functions/v1/chat", {
       method: "POST",
       headers: {
-        "Content-Type": "text/event-stream",
+        "Content-Type": "application/json",
         "Authorization": `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({
         messages,
         component_id: component.id,
         code,
-      }),
-    });
+      })
+    })
+
+    console.log(stream)
+    console.log("stream:", typeof stream)
 
     const reader = stream.body
       ?.pipeThrough(new TextDecoderStream())
@@ -79,12 +97,18 @@
     while (true) {
       if (reader == null) {
         console.log("Reader is null");
+        // Wait a second before trying again
+        await new Promise((resolve) => setTimeout(resolve, 1000))
         continue;
-      }
+      } 
       const { value, done } = (await reader.read()) as {
         value: any;
         done: boolean;
       };
+
+      console.log("Value:", value);
+      console.log("Done:", done);
+
       if (value) {
         analysingMessage = false;
 
