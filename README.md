@@ -20,15 +20,28 @@ git https://github.com/gSUz92nc/Complete-Components.git
 cd complete-components
 ```
 
-4. Install the dependencies:
+3. Install the dependencies:
 ```bash
 npm install
- ```
+```
+
+4. Setup env.local:
+Create a file called `.env.local` and include these with your own values
+```bash
+PUBLIC_SUPABASE_URL=
+PUBLIC_SUPABASE_ANON_KEY=
+ANTHROPIC_API_KEY=
+PUBLIC_URL=http://localhost:5173
+SUPABASE_SERVICE_KEY=
+BRIGHT_DATA_PASS=
+BRIGHT_DATA_USER=
+```
+
 ### Usage
 
 1. Start the development server:
  ```bash
- npm run dev\n
+ npm run dev
  ```
 2. Open your browser and visit `http://localhost:5173`.
 
