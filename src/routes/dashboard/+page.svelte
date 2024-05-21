@@ -15,7 +15,7 @@
   let newProjectName = "";
 
   async function createNewProject() {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("projects")
       .insert([
         {
@@ -35,7 +35,41 @@
     create_project_modal.close();
 
     // Redirect to the new project
-    goto("dashboard/" + newProjectName);
+
+    // Wait for 1 second to allow the database to update
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    goto("/dashboard/" + (data?.[0]?.id ?? ""));
+  }
+
+  async function reloadProjects() {
+    const { data, error } = await supabase.from("projects").select("*").order('created_at', { ascending: false });
+
+    // Check for errors
+    if (error) {
+      console.log("Error loading projects", error);
+    } else {
+      console.log("Projects loaded", data);
+    }
+
+    projects = data || [];
+  }
+
+  async function deleteProject(project_id: string) {
+    console.log("Deleting project", project_id);
+
+    const { error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", project_id);
+
+    // Check for errors
+    if (error) {
+      console.log("Error deleting project", error);
+    } else {
+      console.log("Project deleted", data);
+    }
+
+    reloadProjects();
   }
 </script>
 
@@ -59,12 +93,14 @@
 
 <div class="w-screen">
   <h1 class="text-center text-4xl font-semibold mt-8">Dashboard</h1>
+  <p class="text-center mt-8">Manage all your projects here. Create new ones, open old ones, ecen delete old ones if you so wish</p>
   <div class="flex flex-wrap justify-center mt-10">
     {#each projects as project}
       <div class="card w-96 bg-base-100 shadow-xl mx-5 mt-4">
         <div class="card-body">
           <h2 class="card-title">{project.name}</h2>
-          <div class="card-actions justify-end">
+          <div class="card-actions justify-between">
+            <button class="btn btn-warning" on:click={() => deleteProject(project.id)}>Delete Project</button>
             <a href="/dashboard/{project.id}" class="btn btn-primary">Open</a>
           </div>
         </div>
